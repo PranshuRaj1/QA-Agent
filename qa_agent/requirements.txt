@@ -13,3 +13,5 @@ markdown
 sentence-transformers
 pandas
 python-dotenv
+python-multipart
+requests

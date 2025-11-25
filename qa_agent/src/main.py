@@ -1,15 +1,16 @@
 """
 Main application entry point for the Autonomous QA Agent.
-This script initializes the Streamlit UI, handles user configuration,
-and manages the workflow for building knowledge bases, generating test cases,
-and creating Selenium automation scripts.
+This script initializes the Streamlit UI and communicates with the FastAPI backend
+to handle knowledge base building, test case generation, and script creation.
 """
 
 import streamlit as st
-import os
+import requests
 import json
 import pandas as pd
-from backend import KnowledgeBase, QAAgent
+
+# API Base URL
+API_URL = "http://localhost:8000"
 
 # Configure the Streamlit page with title and layout
 st.set_page_config(page_title="Autonomous QA Agent", layout="wide")
@@ -20,11 +21,20 @@ st.markdown("### Test Case & Selenium Script Generator")
 # Sidebar for Configuration
 with st.sidebar:
     st.header("Configuration")
-    api_key = st.text_input("Groq API Key", type="password", help="Enter your Groq API Key")
+    # Try to get API key from secrets, handle case where secrets file doesn't exist
+    default_api_key = ""
+    try:
+        default_api_key = st.secrets.get("GROQ_API_KEY", "")
+    except FileNotFoundError:
+        pass
+    except Exception:
+        pass # Handle other potential secret errors gracefully
+
+    api_key = st.text_input("Groq API Key", type="password", help="Enter your Groq API Key", value=default_api_key)
     model_name = st.text_input("Model Name", value="llama-3.3-70b-versatile", help="e.g., llama-3.3-70b-versatile, mixtral-8x7b-32768")
     
     st.divider()
-    st.info("Ensure you have the dependencies installed and ChromaDB is working.")
+    st.info("Ensure the FastAPI backend is running on port 8000.")
 
 # Initialize Session State variables to persist data across reruns
 if 'kb_built' not in st.session_state:
@@ -50,35 +60,36 @@ with tab1:
     if st.button("Build Knowledge Base", type="primary"):
         if uploaded_files and uploaded_html:
             with st.spinner("Ingesting documents and building vector database..."):
-                # Create a temporary directory to store uploaded files
-                os.makedirs("temp", exist_ok=True)
-                file_paths = []
-                
-                # Save uploaded support documents to the temp directory
-                for uploaded_file in uploaded_files:
-                    path = os.path.join("temp", uploaded_file.name)
-                    with open(path, "wb") as f:
-                        f.write(uploaded_file.getbuffer())
-                    file_paths.append(path)
-                
-                # Save the target HTML file to the temp directory
-                html_path = os.path.join("temp", uploaded_html.name)
-                with open(html_path, "wb") as f:
-                    f.write(uploaded_html.getbuffer())
-                    # Read HTML content into session state for later use by the Selenium Agent
+                try:
+                    # Prepare files for upload
+                    files_to_upload = []
+                    for f in uploaded_files:
+                        files_to_upload.append(('files', (f.name, f.getvalue(), f.type)))
+                    
+                    # Prepare HTML file
+                    html_file = ('html_file', (uploaded_html.name, uploaded_html.getvalue(), uploaded_html.type))
+                    
+                    # Store HTML content in session state
                     uploaded_html.seek(0)
                     st.session_state.html_content = uploaded_html.read().decode('utf-8')
-                
-                file_paths.append(html_path)
-                
-                # Initialize Knowledge Base and ingest documents
-                try:
-                    kb = KnowledgeBase()
-                    num_chunks = kb.ingest_documents(file_paths)
-                    st.success(f"Knowledge Base Built! Ingested {num_chunks} chunks from {len(file_paths)} files.")
-                    st.session_state.kb_built = True
+
+                    # Correct way to send multiple files and a specific file in requests
+                    # We need to reconstruct the files dictionary
+                    multipart_files = []
+                    for f in uploaded_files:
+                        multipart_files.append(('files', (f.name, f.getvalue(), f.type)))
+                    multipart_files.append(('html_file', (uploaded_html.name, uploaded_html.getvalue(), uploaded_html.type)))
+
+                    response = requests.post(f"{API_URL}/ingest", files=multipart_files)
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        st.success(f"Knowledge Base Built! Ingested {data['chunks']} chunks from {data['files']} files.")
+                        st.session_state.kb_built = True
+                    else:
+                        st.error(f"Error building Knowledge Base: {response.text}")
                 except Exception as e:
-                    st.error(f"Error building Knowledge Base: {e}")
+                    st.error(f"Connection Error: {e}. Is the backend running?")
         else:
             st.error("Please upload both support documents and the HTML file.")
 
@@ -96,14 +107,25 @@ with tab2:
                 st.error("Please enter an API Key in the sidebar.")
             else:
                 with st.spinner("Analyzing Knowledge Base and generating test cases..."):
-                    agent = QAAgent(api_key=api_key, model=model_name)
-                    response = agent.generate_test_cases(query)
-                    
-                    if isinstance(response, list) and "error" in response[0]:
-                         st.error(f"Error: {response[0]['error']}")
-                    else:
-                        st.session_state.test_cases = response
-                        st.success(f"Generated {len(response)} test cases.")
+                    try:
+                        payload = {
+                            "requirement": query,
+                            "api_key": api_key,
+                            "model": model_name
+                        }
+                        response = requests.post(f"{API_URL}/generate-test-cases", json=payload)
+                        
+                        if response.status_code == 200:
+                            result = response.json()
+                            if isinstance(result, list) and len(result) > 0 and "error" in result[0]:
+                                st.error(f"Error: {result[0]['error']}")
+                            else:
+                                st.session_state.test_cases = result
+                                st.success(f"Generated {len(result)} test cases.")
+                        else:
+                            st.error(f"Error generating test cases: {response.text}")
+                    except Exception as e:
+                        st.error(f"Connection Error: {e}")
 
         # Display Results
         if st.session_state.test_cases:
@@ -139,9 +161,21 @@ with tab3:
                 selected_test_case = st.session_state.test_cases[index]
                 
                 with st.spinner("Generating Selenium Script..."):
-                    agent = QAAgent(api_key=api_key, model=model_name)
-                    script = agent.generate_selenium_script(selected_test_case, st.session_state.html_content)
-                    
-                    st.subheader("Generated Python Script")
-                    st.code(script, language="python")
-                    st.success("Script Generated! Copy the code above.")
+                    try:
+                        payload = {
+                            "test_case": selected_test_case,
+                            "html_content": st.session_state.html_content,
+                            "api_key": api_key,
+                            "model": model_name
+                        }
+                        response = requests.post(f"{API_URL}/generate-script", json=payload)
+                        
+                        if response.status_code == 200:
+                            script = response.json().get("script", "")
+                            st.subheader("Generated Python Script")
+                            st.code(script, language="python")
+                            st.success("Script Generated! Copy the code above.")
+                        else:
+                            st.error(f"Error generating script: {response.text}")
+                    except Exception as e:
+                        st.error(f"Connection Error: {e}")
