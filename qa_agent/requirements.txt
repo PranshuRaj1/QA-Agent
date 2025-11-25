@@ -1,0 +1,15 @@
+streamlit
+fastapi
+uvicorn
+chromadb
+langchain
+langchain-community
+langchain-groq
+beautifulsoup4
+selenium
+tiktoken
+unstructured
+markdown
+sentence-transformers
+pandas
+python-dotenv
