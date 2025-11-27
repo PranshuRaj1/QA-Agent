@@ -1,0 +1,23 @@
+UI/UX Guidelines for Checkout Page
+
+1. Color Scheme
+   - Primary Button (Apply, Pay Now): Blue (#007bff) or Green (#28a745) for success actions.
+   - Secondary Button (Remove): Grey (#6c757d).
+   - Background: Light Grey (#f4f4f4).
+   - Container: White (#fff) with shadow.
+
+2. Form Validation
+   - Error messages must be displayed in RED text immediately below the invalid field.
+   - Required fields: Name, Email, Address.
+   - Email must contain '@' symbol.
+   - "Pay Now" button should trigger validation.
+
+3. Feedback
+   - Successful discount application: Green text "15% Discount Applied!".
+   - Invalid discount: Red text "Invalid Discount Code".
+   - Successful Payment: Replace form with Green text "Payment Successful!".
+
+4. Layout
+   - Cart summary at the top.
+   - Shipping details and payment form below.
+   - Total price must be clearly visible and update dynamically.

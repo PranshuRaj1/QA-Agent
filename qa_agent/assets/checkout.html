@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Shop Checkout</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: #fff; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1, h2 { color: #333; }
+        .section { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #eee; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="email"], input[type="number"] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        .error { color: red; font-size: 0.9em; display: none; }
+        .cart-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .btn { display: inline-block; padding: 10px 20px; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; }
+        .btn-primary { background-color: #007bff; }
+        .btn-success { background-color: #28a745; }
+        .btn-secondary { background-color: #6c757d; }
+        .total-section { font-size: 1.2em; font-weight: bold; text-align: right; margin-top: 20px; }
+        #payment-success { display: none; color: green; font-weight: bold; margin-top: 20px; text-align: center; font-size: 1.2em; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>E-Shop Checkout</h1>
+
+    <!-- Cart Section -->
+    <div class="section" id="cart-section">
+        <h2>Your Cart</h2>
+        <div class="cart-item">
+            <span>Wireless Headphones ($50)</span>
+            <input type="number" id="qty-headphones" value="1" min="1" style="width: 60px;" onchange="updateTotal()">
+            <button class="btn btn-secondary btn-sm" onclick="removeItem('headphones')">Remove</button>
+        </div>
+        <div class="cart-item">
+            <span>Smart Watch ($120)</span>
+            <input type="number" id="qty-watch" value="1" min="1" style="width: 60px;" onchange="updateTotal()">
+            <button class="btn btn-secondary btn-sm" onclick="removeItem('watch')">Remove</button>
+        </div>
+        <div class="form-group">
+            <label for="discount-code">Discount Code</label>
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="discount-code" placeholder="Enter code">
+                <button class="btn btn-primary" id="apply-discount-btn" onclick="applyDiscount()">Apply</button>
+            </div>
+            <span id="discount-msg" style="font-size: 0.9em; margin-top: 5px; display: block;"></span>
+        </div>
+        <div class="total-section">
+            Total: $<span id="total-price">170.00</span>
+        </div>
+    </div>
+
+    <!-- User Details Form -->
+    <div class="section">
+        <h2>Shipping Details</h2>
+        <form id="checkout-form" onsubmit="event.preventDefault(); processPayment();">
+            <div class="form-group">
+                <label for="fullname">Full Name</label>
+                <input type="text" id="fullname" required>
+                <span class="error" id="error-fullname">Name is required</span>
+            </div>
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" required>
+                <span class="error" id="error-email">Please enter a valid email</span>
+            </div>
+            <div class="form-group">
+                <label for="address">Shipping Address</label>
+                <input type="text" id="address" required>
+                <span class="error" id="error-address">Address is required</span>
+            </div>
+
+            <div class="form-group">
+                <label>Shipping Method</label>
+                <div>
+                    <input type="radio" id="shipping-standard" name="shipping" value="standard" checked onchange="updateTotal()">
+                    <label for="shipping-standard" style="display:inline; font-weight:normal;">Standard (Free)</label>
+                </div>
+                <div>
+                    <input type="radio" id="shipping-express" name="shipping" value="express" onchange="updateTotal()">
+                    <label for="shipping-express" style="display:inline; font-weight:normal;">Express ($10)</label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Payment Method</label>
+                <div>
+                    <input type="radio" id="payment-cc" name="payment" value="cc" checked>
+                    <label for="payment-cc" style="display:inline; font-weight:normal;">Credit Card</label>
+                </div>
+                <div>
+                    <input type="radio" id="payment-paypal" name="payment" value="paypal">
+                    <label for="payment-paypal" style="display:inline; font-weight:normal;">PayPal</label>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-success" id="pay-now-btn" style="width: 100%;">Pay Now</button>
+        </form>
+        <div id="payment-success">Payment Successful!</div>
+    </div>
+</div>
+
+<script>
+    let discountApplied = 0;
+
+    function updateTotal() {
+        const qtyHeadphones = parseInt(document.getElementById('qty-headphones').value) || 0;
+        const qtyWatch = parseInt(document.getElementById('qty-watch').value) || 0;
+        
+        let subtotal = (qtyHeadphones * 50) + (qtyWatch * 120);
+        
+        // Shipping
+        const shippingCost = document.getElementById('shipping-express').checked ? 10 : 0;
+        
+        // Discount
+        let discountAmount = 0;
+        if (discountApplied > 0) {
+            discountAmount = subtotal * discountApplied;
+        }
+
+        let total = subtotal + shippingCost - discountAmount;
+        document.getElementById('total-price').innerText = total.toFixed(2);
+    }
+
+    function applyDiscount() {
+        const code = document.getElementById('discount-code').value.trim().toUpperCase();
+        const msg = document.getElementById('discount-msg');
+        
+        if (code === 'SAVE15') {
+            discountApplied = 0.15;
+            msg.style.color = 'green';
+            msg.innerText = '15% Discount Applied!';
+        } else if (code === '') {
+            discountApplied = 0;
+            msg.innerText = '';
+        } else {
+            discountApplied = 0;
+            msg.style.color = 'red';
+            msg.innerText = 'Invalid Discount Code';
+        }
+        updateTotal();
+    }
+
+    function removeItem(item) {
+        alert('Remove item functionality not fully implemented for this demo.');
+    }
+
+    function processPayment() {
+        // Simple validation check
+        const name = document.getElementById('fullname').value;
+        const email = document.getElementById('email').value;
+        const address = document.getElementById('address').value;
+        
+        let valid = true;
+
+        if (!name) {
+            document.getElementById('error-fullname').style.display = 'block';
+            valid = false;
+        } else {
+            document.getElementById('error-fullname').style.display = 'none';
+        }
+
+        if (!email || !email.includes('@')) {
+            document.getElementById('error-email').style.display = 'block';
+            valid = false;
+        } else {
+            document.getElementById('error-email').style.display = 'none';
+        }
+
+        if (!address) {
+            document.getElementById('error-address').style.display = 'block';
+            valid = false;
+        } else {
+            document.getElementById('error-address').style.display = 'none';
+        }
+
+        if (valid) {
+            document.getElementById('payment-success').style.display = 'block';
+            document.getElementById('checkout-form').style.display = 'none';
+        }
+    }
+</script>
+
+</body>
+</html>

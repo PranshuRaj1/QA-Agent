@@ -2,7 +2,6 @@
 my_test
 db_test
 db_test
-assets
 verify_gemini.py
 verify_groq.py
 verify_robustness.py
