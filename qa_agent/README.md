@@ -7,6 +7,7 @@ An intelligent, autonomous QA agent capable of constructing a "testing brain" fr
 - **Test Case Generation**: Uses RAG (Retrieval-Augmented Generation) to produce comprehensive test cases grounded in documentation.
 - **Selenium Script Generation**: Converts generated test cases into executable Python Selenium scripts.
 - **Streamlit UI**: A user-friendly interface for all operations.
+- **REST API**: A FastAPI-based backend to expose agent functionalities programmatically.
 
 ## Setup Instructions
 
@@ -27,6 +28,14 @@ An intelligent, autonomous QA agent capable of constructing a "testing brain" fr
    streamlit run src/main.py
    ```
 2. The application will open in your browser at `http://localhost:8501`.
+
+### Running the API
+1. Start the FastAPI server:
+   ```bash
+   python src/api.py
+   ```
+2. The API will be available at `http://localhost:8000`.
+3. Access the interactive API documentation (Swagger UI) at `http://localhost:8000/docs`.
 
 ## Usage Guide
 
@@ -49,6 +58,14 @@ An intelligent, autonomous QA agent capable of constructing a "testing brain" fr
 - Click **"Generate Selenium Script"**.
 - Copy the generated Python code and run it locally.
 
+## API Reference (`src/api.py`)
+The project now includes a REST API built with **FastAPI**, a modern, high-performance web framework for building APIs with Python. This allows you to integrate the QA Agent's capabilities into other workflows or applications.
+
+### Endpoints
+- **`POST /ingest`**: Uploads support documents and the target HTML file to build the knowledge base.
+- **`POST /generate-test-cases`**: Generates test cases based on a text requirement.
+- **`POST /generate-script`**: Generates a Selenium script for a specific test case.
+
 ## Included Assets
 - `assets/checkout.html`: The target e-shop checkout page.
 - `assets/product_specs.md`: Feature rules and specifications.
@@ -62,6 +79,7 @@ qa_agent/
 ├── src/
 │   ├── main.py             # Streamlit App
 │   ├── backend.py          # Core logic (Ingestion, RAG, Generation)
+│   ├── api.py              # FastAPI REST endpoints
 ├── requirements.txt
 └── README.md
 ```
